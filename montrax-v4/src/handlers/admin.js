@@ -12,6 +12,8 @@ import {
   getRequiredGroup, getSetting, setSetting, getAllOrders,
   updateOrderStatus, banUser, unbanUser, getOrderById, getUserOrders,
 } from '../services/database.js';
+import { getText } from '../locales/index.js';
+import { getUser } from '../services/database.js';
 import { getOrderStatusKeyboard } from '../keyboards/index.js';
 
 export function isOwner(userId) {
@@ -271,19 +273,22 @@ export async function handleOrderAction(ctx, action, orderId, bot, statusMap) {
     { parse_mode: 'Markdown' }
   ).catch(() => ctx.reply(`Buyurtma #${orderId} → ${newStatus}`));
 
-  // Foydalanuvchiga xabar yuborish
+  // Foydalanuvchiga xabar yuborish (lokalizatsiya bilan)
   try {
-    const { getAllUsers } = await import('../services/database.js');
-    const user = getAllUsers().find(u => u.id === order.user_id);
+    const user = getUser(order.user_id) || null;
     if (user) {
-      const msgMap = {
-        confirmed: '✅ Buyurtmangiz tasdiqlandi! Tez orada bog\'lanamiz.',
-        rejected:  '❌ Buyurtmangiz rad etildi. Savollar uchun: @' + (process.env.CONTACT_USERNAME || 'MONTRAX_offical'),
-        done:      '🎉 Buyurtmangiz bajarildi! Rahmat!',
-      };
+      const userLang = user.language || 'uz';
+      let msgText = '';
+      if (newStatus === 'confirmed') msgText = getText(userLang, 'order_confirmed');
+      else if (newStatus === 'rejected') {
+        msgText = getText(userLang, 'order_rejected');
+        const contact = process.env.CONTACT_USERNAME ? `@${process.env.CONTACT_USERNAME}` : '';
+        if (contact) msgText += `\n\n${getText(userLang, 'help_text', { contact: process.env.CONTACT_USERNAME })}`;
+      } else if (newStatus === 'done') msgText = getText(userLang, 'order_done');
+
       await bot.telegram.sendMessage(
         user.telegram_id,
-        `*Buyurtma #${orderId}*\n\n${msgMap[newStatus] || newStatus}`,
+        `*Buyurtma #${orderId}*\n\n${msgText}`,
         { parse_mode: 'Markdown' }
       );
     }
@@ -329,17 +334,21 @@ export async function handleBanUser(ctx, telegramId) {
   if (!isAdmin(ctx.from.id)) return deny(ctx);
   await ctx.answerCbQuery().catch(() => {});
   ctx.session.banMode = telegramId;
-  await ctx.reply('🚫 Ban sababini yozing (yoki "sabab yo\'q" deb yozing):');
+  const lang = ctx.session?.language || 'uz';
+  await ctx.reply(getText(lang, 'ban_prompt'));
 }
 
 export async function handleUnbanUser(ctx, telegramId) {
   if (!isAdmin(ctx.from.id)) return deny(ctx);
   await ctx.answerCbQuery().catch(() => {});
   unbanUser(telegramId);
-  await ctx.reply(`✅ Foydalanuvchi ${telegramId} unbanned`);
+  const lang = ctx.session?.language || 'uz';
+  await ctx.reply(getText(lang, 'user_unbanned', { id: telegramId }));
 
   try {
-    await ctx.telegram.sendMessage(telegramId, '✅ Sizning blokirovkangiz olib tashlandi.');
+    const u = getUser(telegramId) || {};
+    const userLang = u.language || 'uz';
+    await ctx.telegram.sendMessage(telegramId, getText(userLang, 'you_unbanned'));
   } catch (e) { /* silent */ }
 
   logger.info(`User ${telegramId} unbanned by admin ${ctx.from.id}`);
