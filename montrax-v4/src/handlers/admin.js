@@ -1,7 +1,6 @@
 /**
  * Admin Panel - To'liq professional versiya
  * Ega (Owner) va Admin huquqlari alohida
- * Premium emoji qo'llab-quvvatlash
  */
 
 import { logger } from '../utils/logger.js';
@@ -52,33 +51,33 @@ export async function handleAdminPanel(ctx) {
       `📦 Kutilmoqda: ${stats.pendingOrders} buyurtma\n\n` +
       `Amalni tanlang`;
 
-    const keyboard = [
-      [
-        { text: '📊 Statistika',       callback_data: 'admin:stats'    },
-        { text: '👥 Foydalanuvchilar', callback_data: 'admin:users'    },
-      ],
-      [
-        { text: '📦 Buyurtmalar',      callback_data: 'admin:orders'   },
-        { text: '💰 To\'lovlar',       callback_data: 'admin:payments' },
-      ],
-    ];
+  const keyboard = [
+    [
+      { text: '📊 Statistika',       callback_data: 'admin:stats'    },
+      { text: '👥 Foydalanuvchilar', callback_data: 'admin:users'    },
+    ],
+    [
+      { text: '📦 Buyurtmalar',      callback_data: 'admin:orders'   },
+      { text: '💰 To\'lovlar',       callback_data: 'admin:payments' },
+    ],
+  ];
 
-    if (isOwner(ctx.from.id)) {
-      keyboard.push([
-        { text: '📢 Broadcast',        callback_data: 'admin:broadcast' },
-        { text: '⚙️ Sozlamalar',       callback_data: 'admin:settings'  },
-      ]);
-    }
+  if (isOwner(ctx.from.id)) {
+    keyboard.push([
+      { text: '📢 Broadcast',        callback_data: 'admin:broadcast' },
+      { text: '⚙️ Sozlamalar',       callback_data: 'admin:settings'  },
+    ]);
+  }
 
-    keyboard.push([{ text: '← Bosh menyu', callback_data: 'menu:main' }]);
+  keyboard.push([{ text: '← Bosh menyu', callback_data: 'menu:main' }]);
 
-    const opts = { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } };
+  const opts = { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } };
 
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, opts).catch(() => ctx.reply(text, opts));
-    } else {
-      await ctx.reply(text, opts);
-    }
+  if (ctx.callbackQuery) {
+    await ctx.editMessageText(text, opts).catch(() => ctx.reply(text, opts));
+  } else {
+    await ctx.reply(text, opts);
+  }
 
     logger.info(`Admin ${ctx.from.id} opened admin panel`);
   } catch (err) {
@@ -267,12 +266,12 @@ export async function handleOrderDetail(ctx, orderId) {
   }
 }
 
-export async function handleOrderAction(ctx, action, orderId, bot) {
+export async function handleOrderAction(ctx, action, orderId, bot, statusMap) {
   if (!isAdmin(ctx.from.id)) return deny(ctx);
   await ctx.answerCbQuery().catch(() => {});
 
-  const statusMap = { confirm: 'confirmed', reject: 'rejected', done: 'done' };
-  const newStatus = statusMap[action];
+  const statusMap2 = { confirm: 'confirmed', reject: 'rejected', done: 'done' };
+  const newStatus  = statusMap2[action];
   if (!newStatus) return;
 
   updateOrderStatus(orderId, newStatus);
@@ -285,7 +284,7 @@ export async function handleOrderAction(ctx, action, orderId, bot) {
     { parse_mode: 'Markdown' }
   ).catch(() => ctx.reply(`Buyurtma #${orderId} → ${newStatus}`));
 
-  // Foydalanuvchiga xabar yuborish
+  // Foydalanuvchiga xabar yuborish (lokalizatsiya bilan)
   try {
     const user = getUser(order.user_id) || null;
     if (user) {
@@ -371,110 +370,28 @@ export async function handleUnbanUser(ctx, telegramId) {
 export async function handleBroadcast(ctx) {
   if (!isOwner(ctx.from.id)) return deny(ctx);
   if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {});
-  
   ctx.session.broadcastMode = true;
-  
-  const infoText = `
-📢 <b>BROADCAST REJIMI</b>
-
-Hammasiga yuboriladigan xabarni yozing.
-
-<b>📝 Qo'llab-quvvatlanadi:</b>
-- Oddiy matn va emoji 😊 ⭐ 🎉
-- Premium emoji ✨ (Premium foydalanuvchilar uchun animatsiyali)
-- HTML format: <b>bold</b>, <i>italic</i>, <code>code</code>
-- Rasm va video
-
-<b>⚙️ Klaviatura:</b>
-Xabar yuborilgandan so'ng asosiy menyu klaviaturasi avtomatik qo'shiladi.
-
-Xabaringizni yuboring:
-`;
-  
-  await ctx.reply(infoText, { parse_mode: 'HTML' });
-  logger.info(`Admin ${ctx.from.id} started broadcast mode`);
+  await ctx.reply('📢 *BROADCAST*\n\nHammasiga yuboriladigan xabarni yozing:', { parse_mode: 'Markdown' });
 }
 
-export async function sendBroadcastMessage(ctx, message, entities = null, mediaType = null, mediaFileId = null) {
+export async function sendBroadcastMessage(bot, ctx) {
   const users = getAllUsers().filter(u => !u.is_banned);
   let ok = 0, fail = 0;
 
-  // Asosiy menyu klaviaturasi
-  const keyboard = {
-    keyboard: [
-      [
-        { text: 'Front-end 💻' },
-        { text: 'Grafik dizayn 🎨' }
-      ],
-      [
-        { text: 'Back-end 🖥️' },
-        { text: 'Mobil app 📱' }
-      ],
-      [
-        { text: 'UI/UX dizayn 🖌️' },
-        { text: 'SMM & Reklama 📝' }
-      ],
-      [
-        { text: '⭐ Yulduzlar sotib olish' },
-        { text: '👑 Premium olish' }
-      ],
-      [
-        { text: '🎁 Sovg\'a yuborish' },
-        { text: '👥 Referal tizimi' }
-      ],
-      [
-        { text: '📦 Mening buyurtmalarim' },
-        { text: '👤 Profilim' }
-      ]
-    ],
-    resize_keyboard: true
-  };
+  const fromChatId  = ctx.message.chat.id;
+  const fromMsgId   = ctx.message.message_id;
 
   for (const user of users) {
     try {
-      const options = {
-        reply_markup: keyboard
-      };
-
-      // Premium emoji qo'llab-quvvatlash
-      if (entities && entities.length > 0) {
-        options.entities = entities;
-      } else {
-        options.parse_mode = 'HTML';
-      }
-
-      // Media turi bo'yicha yuborish
-      if (mediaType && mediaFileId) {
-        if (mediaType === 'photo') {
-          await ctx.telegram.sendPhoto(user.telegram_id, mediaFileId, {
-            caption: message,
-            ...options
-          });
-        } else if (mediaType === 'video') {
-          await ctx.telegram.sendVideo(user.telegram_id, mediaFileId, {
-            caption: message,
-            ...options
-          });
-        } else if (mediaType === 'document') {
-          await ctx.telegram.sendDocument(user.telegram_id, mediaFileId, {
-            caption: message,
-            ...options
-          });
-        }
-      } else {
-        // Oddiy matn xabari
-        await ctx.telegram.sendMessage(user.telegram_id, message, options);
-      }
-
+      await bot.telegram.copyMessage(user.telegram_id, fromChatId, fromMsgId);
       ok++;
       await new Promise(r => setTimeout(r, 35)); // Telegram limit: ~30 msg/s
     } catch (e) {
       fail++;
-      logger.error(`Broadcast error for user ${user.telegram_id}: ${e.message}`);
     }
   }
 
-  logger.info(`Broadcast completed: ${ok} success, ${fail} failed`);
+  logger.info(`Broadcast done: ${ok} ok, ${fail} fail`);
   return { ok, fail };
 }
 
