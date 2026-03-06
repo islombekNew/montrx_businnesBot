@@ -360,16 +360,25 @@ export async function handleBroadcast(ctx) {
   if (!isOwner(ctx.from.id)) return deny(ctx);
   if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {});
   ctx.session.broadcastMode = true;
-  await ctx.reply('📢 *BROADCAST*\n\nHammasiga yuboriladigan xabarni yozing:', { parse_mode: 'Markdown' });
+  await ctx.reply(
+    '📢 *BROADCAST*\n\n' +
+    'Premium emoji, rasm, video — barchasi ishlaydi!\n\n' +
+    'Hammasiga yuboriladigan xabarni yozing:',
+    { parse_mode: 'Markdown' }
+  );
 }
 
-export async function sendBroadcastMessage(bot, message) {
+export async function sendBroadcastMessage(bot, ctx) {
   const users = getAllUsers().filter(u => !u.is_banned);
   let ok = 0, fail = 0;
 
+  const fromChatId = ctx.message.chat.id;
+  const messageId  = ctx.message.message_id;
+
   for (const user of users) {
     try {
-      await bot.telegram.sendMessage(user.telegram_id, message, { parse_mode: 'Markdown' });
+      // copyMessage — premium emoji, rasm, video, entities hammasini saqlaydi
+      await bot.telegram.copyMessage(user.telegram_id, fromChatId, messageId);
       ok++;
       await new Promise(r => setTimeout(r, 35)); // Telegram limit: ~30 msg/s
     } catch (e) {

@@ -120,8 +120,8 @@ export async function handleBroadcasterMessage(ctx, bot) {
   ctx.session.broadcastMode = false;
   try {
     await ctx.reply(getText(ctx.session?.language || 'uz', 'broadcast_sending'));
-    const message = ctx.message.text.trim();
-    const result = await sendBroadcastMessage(bot, message);
+    // ctx ni to'liq uzatamiz — copyMessage uchun chat_id va message_id kerak
+    const result = await sendBroadcastMessage(bot, ctx);
     await ctx.reply(
       getText(ctx.session?.language || 'uz', 'broadcast_done', {
         ok: result.ok,
