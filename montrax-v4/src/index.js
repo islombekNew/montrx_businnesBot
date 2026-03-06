@@ -40,7 +40,6 @@ const ADMIN_IDS = [
 
 try {
   initializeDatabase();
-  // Show configured channel/group so owner can verify
   const ch = getRequiredChannel();
   const gr = getRequiredGroup();
   if (ch) logger.info('✅ Required channel:', ch);
@@ -162,7 +161,6 @@ bot.command('help', async (ctx) => {
   );
 });
 
-// Faqat Owner buyruqlari
 bot.command('addadmin', async (ctx) => {
   try {
     if (!isOwner(ctx.from.id)) {
@@ -249,7 +247,6 @@ bot.command('removegroup', async (ctx) => {
   ctx.reply(getText(lang, 'group_removed'));
 });
 
-// Premium berish (admin)
 bot.command('givepremium', async (ctx) => {
   try {
     const lang = ctx.session?.language || 'uz';
@@ -267,7 +264,6 @@ bot.command('givepremium', async (ctx) => {
   }
 });
 
-// Stars berish (admin - to'lov qilgandan keyin)
 bot.command('givestars', async (ctx) => {
   try {
     const lang = ctx.session?.language || 'uz';
@@ -330,7 +326,8 @@ bot.action('referral:info', (ctx) => handleReferralInfo(ctx));
 // Admin
 bot.action('admin:menu',           (ctx) => handleAdminPanel(ctx));
 bot.action('admin:stats',          (ctx) => handleStats(ctx));
-bot.action('admin:users',          (ctx) => handleUsersList(ctx));
+bot.action('admin:users',          (ctx) => handleUsersList(ctx, 0));
+bot.action(/^admin:users:page:(\d+)$/, (ctx) => handleUsersList(ctx, parseInt(ctx.match[1], 10)));
 bot.action('admin:orders',         (ctx) => handleOrdersList(ctx));
 bot.action('admin:orders:pending', (ctx) => handleOrdersList(ctx, 'pending'));
 bot.action('admin:orders:done',    (ctx) => handleOrdersList(ctx, 'done'));

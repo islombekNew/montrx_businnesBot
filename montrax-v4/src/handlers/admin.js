@@ -121,17 +121,29 @@ export async function handleStats(ctx) {
 
 // ─── FOYDALANUVCHILAR ────────────────────────────────────────────────────────
 
-export async function handleUsersList(ctx) {
+const USERS_PER_PAGE = 15;
+
+export async function handleUsersList(ctx, page = 0) {
   if (!isAdmin(ctx.from.id)) return deny(ctx);
   if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {});
 
-  const users = getAllUsers().slice(0, 20);
-  let text    = `👥 *FOYDALANUVCHILAR* (oxirgi 20)\n\n`;
+  const allUsers   = getAllUsers();
+  const total      = allUsers.length;
+  const totalPages = Math.ceil(total / USERS_PER_PAGE) || 1;
+  const safePage   = Math.max(0, Math.min(page, totalPages - 1));
+  const pageUsers  = allUsers.slice(safePage * USERS_PER_PAGE, (safePage + 1) * USERS_PER_PAGE);
 
-  const buttons = users.map(u => [{
+  const text = `👥 *FOYDALANUVCHILAR*\n\nJami: *${total}* ta | Sahifa: ${safePage + 1}/${totalPages}`;
+
+  const buttons = pageUsers.map(u => [{
     text: `${u.is_banned ? '🚫' : u.is_premium ? '👑' : '👤'} ${escapeMarkdown(u.first_name || u.username || 'NoName')} (${u.telegram_id})`,
     callback_data: `admin:user:${u.telegram_id}`,
   }]);
+
+  const navRow = [];
+  if (safePage > 0)              navRow.push({ text: '◀️ Oldingi', callback_data: `admin:users:page:${safePage - 1}` });
+  if (safePage < totalPages - 1) navRow.push({ text: 'Keyingi ▶️', callback_data: `admin:users:page:${safePage + 1}` });
+  if (navRow.length) buttons.push(navRow);
 
   buttons.push([{ text: '🔍 Qidirish', callback_data: 'admin:users:search' }]);
   buttons.push([{ text: '← Orqaga',    callback_data: 'admin:menu'         }]);
@@ -139,8 +151,7 @@ export async function handleUsersList(ctx) {
   const opts = { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } };
 
   if (ctx.callbackQuery) {
-    await ctx.editMessageText(text + `Jami: ${getAllUsers().length} ta`, opts)
-      .catch(() => ctx.reply(text, opts));
+    await ctx.editMessageText(text, opts).catch(() => ctx.reply(text, opts));
   } else {
     await ctx.reply(text, opts);
   }
@@ -360,25 +371,16 @@ export async function handleBroadcast(ctx) {
   if (!isOwner(ctx.from.id)) return deny(ctx);
   if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {});
   ctx.session.broadcastMode = true;
-  await ctx.reply(
-    '📢 *BROADCAST*\n\n' +
-    'Premium emoji, rasm, video — barchasi ishlaydi!\n\n' +
-    'Hammasiga yuboriladigan xabarni yozing:',
-    { parse_mode: 'Markdown' }
-  );
+  await ctx.reply('📢 *BROADCAST*\n\nHammasiga yuboriladigan xabarni yozing:', { parse_mode: 'Markdown' });
 }
 
-export async function sendBroadcastMessage(bot, ctx) {
+export async function sendBroadcastMessage(bot, message) {
   const users = getAllUsers().filter(u => !u.is_banned);
   let ok = 0, fail = 0;
 
-  const fromChatId = ctx.message.chat.id;
-  const messageId  = ctx.message.message_id;
-
   for (const user of users) {
     try {
-      // copyMessage — premium emoji, rasm, video, entities hammasini saqlaydi
-      await bot.telegram.copyMessage(user.telegram_id, fromChatId, messageId);
+      await bot.telegram.sendMessage(user.telegram_id, message, { parse_mode: 'Markdown' });
       ok++;
       await new Promise(r => setTimeout(r, 35)); // Telegram limit: ~30 msg/s
     } catch (e) {
